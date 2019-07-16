@@ -49,7 +49,8 @@ struct Style {
 }
 
 class TrainingViewController: UIViewController, UICollectionViewDelegate, UICollectionViewDataSource , UIScrollViewDelegate{
-    
+
+    var datesArr = [Int]()
     var numOfDaysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31]
     var monthsArr = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     var currentMonthIndex: Int = 0
@@ -59,44 +60,35 @@ class TrainingViewController: UIViewController, UICollectionViewDelegate, UIColl
     var todaysDate = 0
     var firstWeekDayOfMonth = 0   //(Sunday-Saturday 1-7)
     var selectedIndex: IndexPath!
+    var indexToday = 0
     
     func initializeView() {
-        currentMonthIndex = Calendar.current.component(.month, from: Date())
-        currentYear = Calendar.current.component(.year, from: Date())
-        todaysDate = Calendar.current.component(.day, from: Date())
-        firstWeekDayOfMonth=getFirstWeekDay()
-        
-        //for leap years, make february month of 29 days
-        if currentMonthIndex == 2 && currentYear % 4 == 0 {
-            numOfDaysInMonth[currentMonthIndex-1] = 29
+        for i in 0...364{
+            datesArr.append(i)
         }
-        //end
-        
-        presentMonthIndex=currentMonthIndex
-        presentYear=currentYear
         
         dateCollection.delegate=self
         dateCollection.dataSource=self
         dateCollection.register(CalendarCell.self, forCellWithReuseIdentifier: "Cell")
-    }
-    
-    func getFirstWeekDay() -> Int {
-        let day = ("\(currentYear)-01-01".date?.firstDayOfTheMonth.weekday)!
-        //return day == 7 ? 1 : day
-        return day
+        
+        let today = Date()
+        indexToday = Calendar.current.ordinality(of: .day, in: .year, for: today)!
+        
+        self.dateCollection.scrollToItem(at:IndexPath(item: indexToday, section: 0), at: .right, animated: false)
+
     }
     
     func snapToNearestCell(_ collectionView: UICollectionView) {
         let collectionViewFlowLayout = dateCollection.collectionViewLayout as! UICollectionViewFlowLayout
         for i in 0..<dateCollection.numberOfItems(inSection: 0) {
-            
+
             let itemWithSpaceWidth = collectionViewFlowLayout.itemSize.width + collectionViewFlowLayout.minimumLineSpacing
             let itemWidth = collectionViewFlowLayout.itemSize.width
 
-            if dateCollection.contentOffset.x <= CGFloat(i) * itemWithSpaceWidth + itemWidth / CGFloat(2)  {
+            if dateCollection.contentOffset.x <= CGFloat(i) * itemWithSpaceWidth + itemWidth / CGFloat(2){
                 if i%7 == 0{
                     var j = i+3
-                    
+
                     let indexPath = IndexPath(item: j, section: 0)
                     dateCollection.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: true)
                     break
@@ -109,8 +101,10 @@ class TrainingViewController: UIViewController, UICollectionViewDelegate, UIColl
         snapToNearestCell(dateCollection)
     }
     
-    func scrollViewDidEndDecelerating(scrollView: UIScrollView) {
-        snapToNearestCell(dateCollection)
+    func scrollViewDidEndDecelerating(scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate{
+            snapToNearestCell(dateCollection)
+        }
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -150,25 +144,6 @@ class TrainingViewController: UIViewController, UICollectionViewDelegate, UIColl
         
     }
     
-    func didChangeMonth(monthIndex: Int, year: Int) {
-        currentMonthIndex=monthIndex+1
-        currentYear = year
-        
-        //for leap year, make february month of 29 days
-        if monthIndex == 1 {
-            if currentYear % 4 == 0 {
-                numOfDaysInMonth[monthIndex] = 29
-            } else {
-                numOfDaysInMonth[monthIndex] = 28
-            }
-        }
-        //end
-        
-        firstWeekDayOfMonth=getFirstWeekDay()
-        
-        dateCollection.reloadData()
-    }
-    
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         if collectionView == self.categoryCollection{
             return category.count
@@ -193,43 +168,31 @@ class TrainingViewController: UIViewController, UICollectionViewDelegate, UIColl
             cell.categoryLb.text = category[cellIndex]
             cell.detailLb.text = detail[cellIndex]
             
-            
             return cell
         } else {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "calendarCell", for: indexPath) as! CalendarCell
+
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy MMMM d"
+            let startDate = formatter.date(from: "2019 January 1")!
             
-            var calcDate = indexPath.row-firstWeekDayOfMonth+2
-//            var minMonth = numOfDaysInMonth[presentMonthIndex]
-//
-//            if calcDate == numOfDaysInMonth[presentMonthIndex]{
-//                calcDate = calcDate - minMonth
-//                if presentMonthIndex<12{
-//                    presentMonthIndex += 1
-//                    minMonth = minMonth + numOfDaysInMonth[presentMonthIndex]
-//                }else {
-//                    minMonth = 0
-//                    presentMonthIndex = 0
-//                }
-//            }
-            
-            let today = Date()
             var dateComponent = DateComponents()
             dateComponent.day = indexPath.row
+            let dateToBeDisplayed = Calendar.current.date(byAdding: dateComponent, to: startDate)!
             
-            let dateToBeDisplayed = Calendar.current.date(byAdding: dateComponent, to: today)!
+            let monthFormatter = DateFormatter()
+            monthFormatter.dateFormat = "MMMM yyyy"
             
             let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "dd"
-            print(dateToBeDisplayed)
+            dateFormatter.dateFormat = "d"
             cell.dateLb.text = dateFormatter.string(from: dateToBeDisplayed)
+            monthLb.text = monthFormatter.string(from: dateToBeDisplayed)
             
             if selectedIndex != indexPath{
                 cell.circle.backgroundColor = #colorLiteral(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)
                 cell.dateLb.textColor = UIColor.black
             }else{
                 let cellBefore = collectionView.dequeueReusableCell(withReuseIdentifier: "calendarCell", for: selectedIndex) as! CalendarCell
-                
-//                selected
                 
                 cell.circle.backgroundColor =  #colorLiteral(red: 0.521568656, green: 0.1098039225, blue: 0.05098039284, alpha: 1)
                 cell.circle.layer.cornerRadius = cell.circle.frame.width/2
@@ -255,8 +218,6 @@ class TrainingViewController: UIViewController, UICollectionViewDelegate, UIColl
         super.viewDidLoad()
         initializeView()
         
-        monthLb.text = "\(monthsArr[presentMonthIndex-1]) \(presentYear)"
-        
         categoryCollection.delegate = self
         categoryCollection.dataSource = self
     }
@@ -275,7 +236,7 @@ extension Date {
 extension String {
     static var dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.dateFormat = "yyyy-MMMM-dd"
         return formatter
     }()
     
